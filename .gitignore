@@ -1,0 +1,19 @@
+# --- secrets: NEVER commit -------------------------------------------------
+.env
+data/kite_token.json
+
+# --- runtime data ----------------------------------------------------------
+data/
+logs/
+
+# --- study material: 211 MB of third-party copyrighted books ---------------
+material/
+
+# --- python ----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# strategy runtime caches
+data/strategy_instruments/

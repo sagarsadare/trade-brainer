@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TradeBrain - Hilega Milega</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+<style>
+  :root{
+    --bg:#0b0f16; --panel:#131a24; --panel-2:#1a2330; --line:#243044;
+    --ink:#e6edf7; --muted:#8b9bb4; --dim:#5b6b82;
+    --ok:#34d399; --bad:#f87171; --warn:#fbbf24;
+    --rsi:#e6edf7; --green:#34d399; --red:#f87171;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:14px/1.5 "Segoe UI",Inter,system-ui,sans-serif}
+  header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+         padding:14px 20px;background:var(--panel);border-bottom:1px solid var(--line)}
+  h1{font-size:16px;margin:0;font-weight:600}
+  h1 span{color:var(--muted);font-weight:400}
+  .pills{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;align-items:center}
+  .pill{font-size:12px;padding:4px 10px;border-radius:999px;background:var(--panel-2);
+        border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+  .pill.ok{border-color:#1f6f52;color:var(--ok)} .pill.bad{border-color:#7a2f2f;color:var(--bad)}
+  .pill.warn{border-color:#7a5f1f;color:var(--warn)}
+  button,select,input{background:var(--panel-2);color:var(--ink);border:1px solid var(--line);
+        border-radius:6px;padding:6px 10px;font:inherit;font-size:13px}
+  input,select{width:100%}
+  button{cursor:pointer;width:auto} button:hover:not(:disabled){border-color:#3a4c68}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  button.primary{background:#1d4ed8;border-color:#2563eb;color:#fff}
+  button.primary:hover:not(:disabled){background:#2563eb}
+  button.danger{background:#7f1d1d;border-color:#b91c1c;color:#fff}
+  main{padding:16px 20px 60px;max-width:1500px;margin:0 auto}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+        padding:14px 16px;margin-bottom:14px}
+  .card h2{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);
+           margin:0 0 12px;font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+  .fld{display:flex;flex-direction:column;gap:5px}
+  .fld label{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+  table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+  th{text-align:right;color:var(--dim);font-weight:600;font-size:11px;text-transform:uppercase;
+     letter-spacing:.6px;padding:7px 9px;border-bottom:1px solid var(--line);white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  td{padding:7px 9px;border-bottom:1px solid #1a2230;text-align:right;white-space:nowrap}
+  tr:last-child td{border-bottom:none}
+  .scroll{overflow-x:auto;max-height:400px;overflow-y:auto}
+  .chk{display:flex;gap:9px;padding:7px 0;align-items:flex-start;font-size:13px}
+  .chk .mark{flex:0 0 auto;font-weight:700;font-size:11px;padding:2px 7px;border-radius:4px}
+  .chk.pass .mark{background:#0f3d2e;color:var(--ok)}
+  .chk.fail .mark{background:#3d1414;color:var(--bad)}
+  .chk .txt{color:var(--muted)}
+  .stat{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px}
+  .stat div{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+  .stat .k{font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--dim)}
+  .stat .v{font-size:20px;font-weight:600;margin-top:3px}
+  .long{color:var(--ok)} .short{color:var(--bad)} .hold{color:var(--muted)}
+  .banner{border-radius:8px;padding:11px 13px;font-size:13px;margin-bottom:12px;line-height:1.6}
+  .banner.go{background:#0f3d2e33;border:1px solid #1f6f52;color:var(--ok)}
+  .banner.no{background:#3d141433;border:1px solid #7a2f2f;color:var(--bad)}
+  .banner.warn{background:#3d321433;border:1px solid #7a5f1f;color:var(--warn)}
+  .banner.info{background:#1d4ed822;border:1px solid #2563eb;color:#bfd3ff}
+  .note{color:var(--dim);font-size:12px;line-height:1.75;margin:8px 0 0}
+  .note b{color:var(--muted)}
+  .note code{background:var(--panel-2);padding:1px 5px;border-radius:4px}
+  #chart{height:520px}
+  #toast{position:fixed;right:18px;bottom:18px;background:var(--panel-2);border:1px solid var(--line);
+         border-radius:8px;padding:11px 14px;font-size:13px;opacity:0;transition:opacity .25s;
+         max-width:420px;pointer-events:none;z-index:9}
+  #toast.show{opacity:1}
+  .muted{color:var(--dim)}
+</style>
+</head>
+<body>
+<header>
+  <h1>TradeBrain <span>/ Hilega Milega</span></h1>
+  <div id="tbNav"></div>
+  <script src="/static/nav.js?v=5" data-active="hilega"></script>
+  <div class="pills" id="pills"></div>
+</header>
+
+<main>
+  <div class="card">
+    <h2>1 &middot; Setup</h2>
+    <div class="grid">
+      <div class="fld"><label for="preset">Instrument</label><select id="preset"></select></div>
+      <div class="fld"><label for="symbol">Kite symbol</label><input id="symbol" value="NSE:NIFTY 50"></div>
+      <div class="fld"><label for="tf">Signal timeframe</label><select id="tf"></select></div>
+      <div class="fld"><label for="bars">Bars of history</label><input id="bars" type="number" value="500" step="50"></div>
+      <div class="fld"><label for="capital">Capital &#8377;</label><input id="capital" type="number" value="1000000" step="50000"></div>
+      <div class="fld"><label for="lot">Lot size</label><input id="lot" type="number" value="1" step="1"></div>
+      <div class="fld"><label for="riskpct">Risk / trade %</label><input id="riskpct" type="number" value="2" step="0.5"></div>
+      <div class="fld"><label for="minrr">Min R:R</label><input id="minrr" type="number" value="2" step="0.5"></div>
+      <div class="fld"><label for="rsiLen">RSI length</label><input id="rsiLen" type="number" value="9"></div>
+      <div class="fld"><label for="emaLen">EMA on RSI</label><input id="emaLen" type="number" value="3"></div>
+      <div class="fld"><label for="wmaLen">WMA on RSI</label><input id="wmaLen" type="number" value="21"></div>
+    </div>
+    <p class="note" id="tfNote"></p>
+    <div class="row" style="margin-top:12px">
+      <button id="btnSignal" class="primary">Get signal</button>
+      <button id="btnBt">Run backtest</button>
+    </div>
+  </div>
+
+  <div class="card" id="sigCard" style="display:none">
+    <h2>2 &middot; Signal</h2>
+    <div id="verdict"></div>
+    <div class="stat" id="sigStats"></div>
+    <div id="gates"></div>
+    <p class="note" id="sigNotes"></p>
+  </div>
+
+  <div class="card" id="chartCard" style="display:none">
+    <h2>3 &middot; Price and the three HM lines</h2>
+    <div id="chart"></div>
+    <p class="note">The indicator lives in RSI space with the midline at <b>50</b>.
+      <b>White</b> = RSI(9), <b>green</b> = EMA(3) of the RSI, <b>red</b> = WMA(21) of the
+      RSI &mdash; the linear weighting is what makes the red line the strength proxy.
+      All three are computed on the RSI series, never on price.<br>
+      <b style="color:#34d399">&#9650; Buy</b> and <b style="color:#f87171">&#9660; Sell</b>
+      mark entries the full rule stack would have taken;
+      <b style="color:#fbbf24">&times; Exit</b> marks where each was closed and why.
+      Hollow grey circles are S.3c setups that fired but were
+      <b>blocked by a gate</b> &mdash; seeing what was skipped matters as much as
+      seeing what was taken. Hover any marker for the reason.</p>
+  </div>
+
+  <div class="card" id="execCard" style="display:none">
+    <h2>4 &middot; Execute</h2>
+    <div id="execBanner"></div>
+    <div class="row">
+      <div class="fld" style="min-width:170px"><label for="mode">Mode</label>
+        <select id="mode"><option value="paper">Paper (nothing sent)</option>
+          <option value="live">LIVE (real orders)</option></select></div>
+      <div class="fld" style="min-width:170px"><label for="tsym">Trading symbol</label>
+        <input id="tsym" placeholder="e.g. RELIANCE"></div>
+      <div class="fld" style="min-width:110px"><label for="exch">Exchange</label>
+        <select id="exch"><option>NSE</option><option>NFO</option><option>BSE</option><option>BFO</option></select></div>
+      <div class="fld" style="min-width:110px"><label for="product">Product</label>
+        <select id="product"><option>MIS</option><option>CNC</option><option>NRML</option></select></div>
+      <div class="fld" style="flex:1;min-width:200px"><label for="note">Note</label>
+        <input id="note" placeholder="optional journal note"></div>
+    </div>
+    <div class="row" id="confirmRow" style="display:none;margin-top:12px">
+      <div class="fld" style="flex:1;min-width:300px">
+        <label for="confirm">Type the confirmation phrase exactly</label>
+        <input id="confirm" autocomplete="off"></div>
+    </div>
+    <div class="row" style="margin-top:12px"><button id="btnExec" class="primary">Record on paper</button></div>
+    <div id="execResult" style="margin-top:12px"></div>
+  </div>
+
+  <div class="card" id="btCard" style="display:none">
+    <h2>5 &middot; Backtest</h2>
+    <div id="btCaveat"></div>
+    <div class="stat" id="btStats"></div>
+    <div class="scroll"><table id="btTbl"></table></div>
+  </div>
+
+  <div class="card">
+    <h2>6 &middot; Recorded trades</h2>
+    <div class="scroll"><table id="tradeTbl"></table></div>
+  </div>
+
+  <p class="note">
+    Built from the rules you supplied (<code>docs/hilega_milega_rules.md</code>).
+    Not advice and not a recommendation to trade. The source itself puts raw accuracy
+    around 70&ndash;75% and insists on backtesting, then forward-testing on paper, before
+    any live order. Every live order here needs your explicit typed confirmation;
+    nothing trades on its own.
+  </p>
+</main>
+<div id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+let SIG = null, META = {};
+function toast(m, ms){const t=$("toast");t.textContent=m;t.classList.add("show");
+  clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"), ms||4500);}
+const money = v => v==null ? "--" : "₹"+Number(v).toLocaleString("en-IN",{maximumFractionDigits:0});
+const num = (v,d) => v==null ? "--" : Number(v).toFixed(d==null?2:d);
+
+async function api(p, o){const r=await fetch(p,o);const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(typeof j.detail==="string"?j.detail:JSON.stringify(j.detail||r.statusText));
+  return j;}
+
+function body(){
+  return {symbol:$("symbol").value.trim(), interval:$("tf").value,
+    bars:parseInt($("bars").value,10), capital:parseFloat($("capital").value),
+    risk_pct:parseFloat($("riskpct").value)/100, min_rr:parseFloat($("minrr").value),
+    lot_size:parseInt($("lot").value,10), rsi_length:parseInt($("rsiLen").value,10),
+    ema_length:parseInt($("emaLen").value,10), wma_length:parseInt($("wmaLen").value,10)};
+}
+const post = (p,b) => api(p,{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify(b)});
+
+async function loadMeta(){
+  try{ META = await api("/api/hilega/meta"); }
+  catch(e){ $("pills").innerHTML='<span class="pill bad">API unreachable</span>'; return; }
+  const p=[];
+  p.push(META.authenticated?'<span class="pill ok">Kite connected</span>'
+                           :'<span class="pill bad">Kite not connected</span>');
+  p.push(META.live_orders_enabled?'<span class="pill warn">LIVE ORDERS ENABLED</span>'
+                                 :'<span class="pill">Live orders disabled</span>');
+  p.push('<span class="pill">IST <b>'+META.now_ist.slice(11,16)+'</b></span>');
+  $("pills").innerHTML=p.join(" ");
+  $("preset").innerHTML = META.presets.map(x=>
+    `<option value="${x.symbol}" data-lot="${x.lot_size}">${x.label}</option>`).join("");
+  $("tf").innerHTML = META.timeframes.map(t=>
+    `<option value="${t.key}"${t.key==="day"?" selected":""}>${t.label}</option>`).join("");
+  syncTf();
+}
+function syncTf(){
+  const t = META.timeframes.find(x=>x.key===$("tf").value);
+  if(t) $("tfNote").innerHTML = `Signals on <b>${t.label}</b>, trend confirmed on `
+    + `<b>${(META.timeframes.find(x=>x.key===t.higher)||{}).label || t.higher}</b> `
+    + `(rules S.6). Weekly bars are resampled from daily &mdash; Kite has no weekly interval.`;
+}
+
+function renderSignal(d){
+  SIG = d;
+  $("sigCard").style.display=""; $("chartCard").style.display="";
+  $("execCard").style.display = (d.signal==="LONG"||d.signal==="SHORT") ? "" : "none";
+
+  const cls = d.signal==="LONG"?"go":(d.signal==="SHORT"?"warn":"info");
+  const word = d.signal==="HOLD" ? "No trade" : d.signal;
+  $("verdict").innerHTML = `<div class="banner ${cls}"><b>${word}</b> on ${d.symbol} `
+    + `${d.interval} as of bar ${String(d.bar_date).slice(0,10)}.`
+    + (d.signal==="HOLD" && d.raw_signal!=="HOLD"
+        ? ` A ${d.raw_signal} setup formed but a gate below blocked it.` : "")
+    + `</div>`;
+
+  $("sigStats").innerHTML = [
+    ["Signal", `<span class="${d.signal.toLowerCase()}">${d.signal}</span>`],
+    ["Close", num(d.close)], ["RSI(9)", num(d.rsi)],
+    ["Green EMA(3)", num(d.green)], ["Red WMA(21)", num(d.red)],
+    ["Higher TF bias", d.trend_bias],
+    ["Entry", num(d.entry)], ["Stop-loss", num(d.stop_loss)],
+    ["Target", num(d.target)],
+    ["R:R", d.risk_reward==null?"--":"1:"+d.risk_reward],
+    ["Quantity", d.quantity==null?"--":d.quantity],
+    ["Risk", money(d.risk_amount)]
+  ].map(([k,v])=>`<div><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+
+  $("gates").innerHTML = d.gates.map(g=>
+    `<div class="chk ${g.passed?'pass':'fail'}"><span class="mark">${g.passed?'PASS':'FAIL'}</span>`
+    + `<span class="txt"><b>${g.name}</b> &mdash; ${g.detail}</span></div>`).join("");
+
+  const n = (d.notes||[]).slice();
+  const t = d.thresholds_used||{};
+  n.push(`No-trade thresholds: separation &lt; ${t.no_trade_threshold}, |RSI&minus;50| &lt; `
+    + `${t.no_trade_mid_band} (${t.source}). The source leaves this number undefined, so it is `
+    + `derived from this instrument's own distribution.`);
+  $("sigNotes").innerHTML = n.map(x=>"&bull; "+x).join("<br>");
+  drawChart(d);
+  $("confirm").placeholder = d.confirmation_phrase;
+  if(!$("tsym").value) $("tsym").value = d.symbol.split(":").pop();
+  syncMode();
+}
+
+function drawChart(d){
+  const s = d.series, x = s.dates.map(v=>String(v).slice(0,10));
+  const line=(y,name,color,w)=>({x,y,name,type:"scatter",mode:"lines",connectgaps:false,
+    line:{color,width:w||1.8},yaxis:"y2"});
+  const traces=[
+    {x,y:s.close,name:"Close",type:"scatter",mode:"lines",
+     line:{color:"#60a5fa",width:1.6},yaxis:"y"},
+    line(s.rsi,"RSI(9)","#e6edf7",2),
+    line(s.green,"EMA(3) of RSI","#34d399"),
+    line(s.red,"WMA(21) of RSI","#f87171",2)
+  ];
+
+  // Buy / sell / exit points, drawn on BOTH panels so a signal can be read
+  // against price and against the indicator that produced it.
+  const KINDS = {
+    BUY:     {sym:"triangle-up",   color:"#34d399", size:13, name:"Buy"},
+    SELL:    {sym:"triangle-down", color:"#f87171", size:13, name:"Sell"},
+    EXIT:    {sym:"x",             color:"#fbbf24", size:11, name:"Exit"},
+    BLOCKED: {sym:"circle-open",   color:"#5b6b82", size:9,  name:"Setup blocked by a gate"}
+  };
+  const marks = d.markers || [];
+  Object.keys(KINDS).forEach(function(k){
+    const g = marks.filter(m => m.kind === k);
+    if(!g.length) return;
+    const cfg = KINDS[k];
+    const mx = g.map(m => String(m.date).slice(0,10));
+    const text = g.map(m => m.label);
+    traces.push({x:mx, y:g.map(m=>m.price), name:cfg.name+" ("+g.length+")",
+      type:"scatter", mode:"markers", yaxis:"y", legendgroup:k,
+      marker:{symbol:cfg.sym, color:cfg.color, size:cfg.size,
+              line:{color:"#0b0f16", width:1}},
+      text, hovertemplate:"%{x}<br>%{y:.2f}<br>%{text}<extra></extra>"});
+    traces.push({x:mx, y:g.map(m=>m.rsi), name:cfg.name, type:"scatter",
+      mode:"markers", yaxis:"y2", legendgroup:k, showlegend:false,
+      marker:{symbol:cfg.sym, color:cfg.color, size:cfg.size-2,
+              line:{color:"#0b0f16", width:1}},
+      text, hovertemplate:"%{x}<br>RSI %{y:.1f}<br>%{text}<extra></extra>"});
+  });
+  Plotly.react("chart", traces, {
+    paper_bgcolor:"transparent", plot_bgcolor:"transparent",
+    font:{color:"#8b9bb4",size:11}, margin:{l:58,r:58,t:16,b:96},
+    hovermode:"x unified",
+    hoverlabel:{bgcolor:"#1a2330",bordercolor:"#243044",font:{color:"#e6edf7"}},
+    legend:{orientation:"h",y:-0.30,font:{size:11}},
+    xaxis:{gridcolor:"#1b2432",zeroline:false,type:"category",nticks:12,tickangle:-40},
+    yaxis:{title:{text:"Price",font:{size:11}},domain:[0.56,1],gridcolor:"#1b2432",zeroline:false},
+    yaxis2:{title:{text:"RSI space",font:{size:11}},domain:[0,0.44],range:[0,100],
+            gridcolor:"#1b2432",zeroline:false,anchor:"x"},
+    shapes:[{type:"line",xref:"paper",x0:0,x1:1,yref:"y2",y0:50,y1:50,
+             line:{color:"#4b5b73",width:1,dash:"dash"}}]
+  }, {responsive:true,displaylogo:false,modeBarButtonsToRemove:["select2d","lasso2d"]});
+}
+
+function syncMode(){
+  const live = $("mode").value==="live";
+  $("confirmRow").style.display = live?"":"none";
+  const b=$("btnExec");
+  b.textContent = live?"PLACE LIVE ORDERS":"Record on paper";
+  b.className = live?"danger":"primary";
+  if(live && !META.live_orders_enabled)
+    $("execBanner").innerHTML='<div class="banner no"><b>Live orders are disabled.</b> Set '
+      +'<code>ALLOW_LIVE_ORDERS=true</code> in .env and restart. The server will refuse this.</div>';
+  else if(live)
+    $("execBanner").innerHTML='<div class="banner warn"><b>Real orders, real money.</b> '
+      +'A MARKET entry and an SL-M stop are sent together. If the entry fills and the stop '
+      +'is rejected you are holding an unprotected position &mdash; check your Kite orderbook.</div>';
+  else
+    $("execBanner").innerHTML='<div class="banner go">Paper mode &mdash; recorded locally, '
+      +'nothing sent to the exchange.</div>';
+}
+
+function renderBacktest(d){
+  $("btCard").style.display="";
+  $("btCaveat").innerHTML = d.caveat ? `<div class="banner warn">${d.caveat}</div>` : "";
+  const s=d.stats;
+  if(!s.trades){ $("btStats").innerHTML='<div><div class="k">Trades</div><div class="v">0</div></div>';
+    $("btTbl").innerHTML=""; return; }
+  $("btStats").innerHTML=[
+    ["Trades",s.trades],["Win rate",(s.win_rate*100).toFixed(1)+"%"],
+    ["Total R",s.total_r],["Avg R",s.avg_r],["Avg win",s.avg_win_r+"R"],
+    ["Avg loss",s.avg_loss_r+"R"],["Max DD",s.max_drawdown_r+"R"],
+    ["Avg bars held",s.avg_bars_held]
+  ].map(([k,v])=>`<div><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+  $("btTbl").innerHTML="<tr><th>Side</th><th>Entry date</th><th>Entry</th><th>SL</th>"
+    +"<th>Target</th><th>Exit date</th><th>Exit</th><th>Reason</th><th>Bars</th><th>R</th></tr>"
+    + d.trades.slice().reverse().map(t=>`<tr>
+        <td class="${t.side.toLowerCase()}">${t.side}</td>
+        <td>${String(t.entry_date).slice(0,10)}</td><td>${num(t.entry)}</td>
+        <td>${num(t.stop_loss)}</td><td>${num(t.target)}</td>
+        <td>${String(t.exit_date).slice(0,10)}</td><td>${num(t.exit)}</td>
+        <td>${t.exit_reason}</td><td>${t.bars_held}</td>
+        <td class="${t.r_multiple>=0?'long':'short'}">${t.r_multiple>=0?"+":""}${t.r_multiple}</td>
+      </tr>`).join("");
+}
+
+async function loadTrades(){
+  let d; try{ d=await api("/api/hilega/trades?limit=25"); }catch(e){ return; }
+  if(!d.trades.length){ $("tradeTbl").innerHTML='<tr><td class="muted">No trades recorded yet.</td></tr>'; return; }
+  $("tradeTbl").innerHTML="<tr><th>#</th><th>When</th><th>Mode</th><th>Status</th><th>Symbol</th>"
+    +"<th>TF</th><th>Side</th><th>Bar</th><th>Entry</th><th>SL</th><th>Qty</th></tr>"
+    + d.trades.map(t=>`<tr><td>${t.id}</td><td>${t.created_at.slice(0,16).replace("T"," ")}</td>
+        <td class="${t.mode==='live'?'short':''}">${t.mode}</td><td>${t.status}</td>
+        <td>${t.tradingsymbol}</td><td>${t.interval}</td>
+        <td class="${t.side.toLowerCase()}">${t.side}</td>
+        <td>${String(t.bar_date).slice(0,10)}</td><td>${num(t.entry)}</td>
+        <td>${num(t.stop_loss)}</td><td>${t.quantity}</td></tr>`).join("");
+}
+
+async function work(btn, fn){
+  btn.disabled=true; const o=btn.textContent; btn.textContent="Working...";
+  try{ await fn(); }catch(e){ toast(e.message, 9000); }
+  finally{ btn.disabled=false; btn.textContent=o; }
+}
+
+$("preset").onchange=()=>{ const o=$("preset").selectedOptions[0];
+  $("symbol").value=o.value; $("lot").value=o.dataset.lot; };
+$("tf").onchange=syncTf;
+$("mode").onchange=syncMode;
+$("btnSignal").onclick=e=>work(e.target, async()=>{
+  renderSignal(await post("/api/hilega/signal", body())); toast("Signal computed."); });
+$("btnBt").onclick=e=>work(e.target, async()=>{
+  renderBacktest(await post("/api/hilega/backtest", body())); toast("Backtest complete."); });
+$("btnExec").onclick=e=>work(e.target, async()=>{
+  if(!SIG) return;
+  if($("mode").value==="live" && !confirm("Place a REAL "+SIG.signal+" order? This uses real money.")) return;
+  const r = await post("/api/hilega/execute", {
+    signal:SIG, context:{symbol:SIG.symbol, interval:SIG.interval,
+      higher_interval:SIG.higher_interval, exchange:$("exch").value,
+      tradingsymbol:$("tsym").value},
+    mode:$("mode").value, confirm:$("confirm").value, tradingsymbol:$("tsym").value,
+    exchange:$("exch").value, product:$("product").value, note:$("note").value});
+  $("execResult").innerHTML=`<div class="banner ${r.status==='open'||r.mode==='paper'?'go':'no'}">`
+    +`${r.message} (trade #${r.trade_id})</div>`;
+  loadTrades();
+});
+
+(async function(){ await loadMeta(); await loadTrades(); })();
+</script>
+</body>
+</html>

@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TradeBrain - Math Calendar Spread</title>
+<style>
+  :root{
+    --bg:#0b0f16; --panel:#131a24; --panel-2:#1a2330; --line:#243044;
+    --ink:#e6edf7; --muted:#8b9bb4; --dim:#5b6b82;
+    --ok:#34d399; --bad:#f87171; --warn:#fbbf24; --buy:#60a5fa; --sell:#f0883e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:14px/1.5 "Segoe UI",Inter,system-ui,sans-serif}
+  header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+         padding:14px 20px;background:var(--panel);border-bottom:1px solid var(--line)}
+  h1{font-size:16px;margin:0;font-weight:600}
+  h1 span{color:var(--muted);font-weight:400}
+  nav{display:flex;gap:6px;margin-left:8px}
+  nav a{color:var(--muted);text-decoration:none;font-size:13px;padding:5px 11px;
+        border-radius:6px;border:1px solid transparent;white-space:nowrap}
+  nav a:hover{color:var(--ink);border-color:var(--line)}
+  nav a.on{background:var(--panel-2);border-color:var(--line);color:var(--ink)}
+  .pills{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;align-items:center}
+  .pill{font-size:12px;padding:4px 10px;border-radius:999px;background:var(--panel-2);
+        border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+  .pill.ok{border-color:#1f6f52;color:var(--ok)} .pill.bad{border-color:#7a2f2f;color:var(--bad)}
+  .pill.warn{border-color:#7a5f1f;color:var(--warn)}
+  button,select,input{background:var(--panel-2);color:var(--ink);border:1px solid var(--line);
+        border-radius:6px;padding:6px 10px;font:inherit;font-size:13px}
+  input{width:100%}
+  button{cursor:pointer} button:hover:not(:disabled){border-color:#3a4c68}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  button.primary{background:#1d4ed8;border-color:#2563eb;color:#fff}
+  button.primary:hover:not(:disabled){background:#2563eb}
+  button.danger{background:#7f1d1d;border-color:#b91c1c;color:#fff}
+  button.danger:hover:not(:disabled){background:#b91c1c}
+  main{padding:16px 20px 60px;max-width:1500px;margin:0 auto}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+        padding:14px 16px;margin-bottom:14px}
+  .card h2{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);
+           margin:0 0 12px;font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
+  .fld{display:flex;flex-direction:column;gap:5px}
+  .fld label{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim)}
+  table{width:100%;border-collapse:collapse;font-size:13px;
+        font-variant-numeric:tabular-nums}
+  th{text-align:right;color:var(--dim);font-weight:600;font-size:11px;
+     text-transform:uppercase;letter-spacing:.6px;padding:7px 9px;
+     border-bottom:1px solid var(--line);white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  td{padding:7px 9px;border-bottom:1px solid #1a2230;text-align:right;white-space:nowrap}
+  tr:last-child td{border-bottom:none}
+  .buy{color:var(--buy);font-weight:600} .sell{color:var(--sell);font-weight:600}
+  .scroll{overflow-x:auto;max-height:420px;overflow-y:auto}
+  .chk{display:flex;gap:9px;padding:7px 0;align-items:flex-start;font-size:13px}
+  .chk .mark{flex:0 0 auto;font-weight:700;font-size:11px;padding:2px 7px;border-radius:4px}
+  .chk.pass .mark{background:#0f3d2e;color:var(--ok)}
+  .chk.fail .mark{background:#3d1414;color:var(--bad)}
+  .chk .txt{color:var(--muted)}
+  .stat{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;
+        margin-bottom:12px}
+  .stat div{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;
+            padding:10px 12px}
+  .stat .k{font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--dim)}
+  .stat .v{font-size:20px;font-weight:600;margin-top:3px}
+  .note{color:var(--dim);font-size:12px;line-height:1.7;margin:8px 0 0}
+  .banner{border-radius:8px;padding:11px 13px;font-size:13px;margin-bottom:12px;line-height:1.6}
+  .banner.go{background:#0f3d2e33;border:1px solid #1f6f52;color:var(--ok)}
+  .banner.no{background:#3d141433;border:1px solid #7a2f2f;color:var(--bad)}
+  .banner.warn{background:#3d321433;border:1px solid #7a5f1f;color:var(--warn)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+  .hl{background:#1d4ed833}
+  #toast{position:fixed;right:18px;bottom:18px;background:var(--panel-2);
+         border:1px solid var(--line);border-radius:8px;padding:11px 14px;font-size:13px;
+         opacity:0;transition:opacity .25s;max-width:420px;pointer-events:none;z-index:9}
+  #toast.show{opacity:1}
+  .muted{color:var(--dim)}
+</style>
+</head>
+<body>
+<header>
+  <h1>TradeBrain <span>/ Math Calendar Spread</span></h1>
+  <div id="tbNav"></div>
+  <script src="/static/nav.js?v=5" data-active="calendar"></script>
+  <div class="pills" id="pills"></div>
+</header>
+
+<main>
+  <div class="card">
+    <h2>1 &middot; Setup</h2>
+    <div class="grid">
+      <div class="fld"><label for="idx">Index</label><select id="idx"></select></div>
+      <div class="fld"><label for="ot">Option type</label>
+        <select id="ot"><option value="CE">CE (calls)</option><option value="PE">PE (puts)</option></select></div>
+      <div class="fld"><label for="wk">Sell expiry (weekly)</label><select id="wk"></select></div>
+      <div class="fld"><label for="mn">Buy expiry (monthly)</label><select id="mn"></select></div>
+      <div class="fld"><label for="pBuy">Buy premium &#8377;</label><input id="pBuy" type="number" value="200" step="10"></div>
+      <div class="fld"><label for="pS1">Sell #1 &#8377;</label><input id="pS1" type="number" value="150" step="10"></div>
+      <div class="fld"><label for="pS2">Sell #2 &#8377;</label><input id="pS2" type="number" value="450" step="10"></div>
+      <div class="fld"><label for="lots">Sell lots (a,b)</label><input id="lots" value="1,1"></div>
+    </div>
+    <p class="note" id="expReason"></p>
+    <div class="row" style="margin-top:12px">
+      <button id="btnPlan" class="primary">Build plan</button>
+      <button id="btnChain">Load option chain</button>
+    </div>
+  </div>
+
+  <div class="card" id="fvCard">
+    <h2>1b &middot; Fair-value zone (S.8)</h2>
+    <div class="stat" id="fvStats"></div>
+    <p class="note" id="fvNote"></p>
+  </div>
+
+  <div class="card" id="planCard" style="display:none">
+    <h2>2 &middot; Plan</h2>
+    <div id="verdict"></div>
+    <div class="stat" id="planStats"></div>
+    <div class="scroll"><table id="legTbl"></table></div>
+    <div style="margin-top:12px" id="checks"></div>
+    <p class="note" id="planNotes"></p>
+  </div>
+
+  <div class="card" id="marginCard" style="display:none">
+    <h2>3 &middot; Margin</h2>
+    <div class="row"><button id="btnMargin">Fetch basket margin from Kite</button></div>
+    <div class="stat" id="marginStats" style="margin-top:12px"></div>
+    <p class="note">Kite's basket endpoint applies the calendar-spread hedge benefit.
+      Summing per-leg margins would overstate the requirement substantially.</p>
+  </div>
+
+  <div class="card" id="execCard" style="display:none">
+    <h2>4 &middot; Execute</h2>
+    <div id="execBanner"></div>
+    <div class="row">
+      <div class="fld"><label for="mode">Mode</label>
+        <select id="mode"><option value="paper">Paper (nothing sent)</option>
+          <option value="live">LIVE (real orders)</option></select></div>
+      <div class="fld"><label for="product">Product</label>
+        <select id="product"><option>NRML</option><option>MIS</option></select></div>
+      <div class="fld"><label for="otype">Order type</label>
+        <select id="otype"><option>LIMIT</option><option>MARKET</option></select></div>
+      <div class="fld" style="flex:1;min-width:260px"><label for="note">Note</label>
+        <input id="note" placeholder="optional journal note"></div>
+    </div>
+    <div class="row" id="confirmRow" style="display:none;margin-top:12px">
+      <div class="fld" style="flex:1;min-width:300px">
+        <label for="confirm">Type the confirmation phrase exactly</label>
+        <input id="confirm" autocomplete="off" placeholder=""></div>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button id="btnExec" class="primary">Record on paper</button>
+    </div>
+    <div id="execResult" style="margin-top:12px"></div>
+  </div>
+
+  <div class="card" id="chainCard" style="display:none">
+    <h2>5 &middot; Option chain &mdash; weekly vs monthly premium</h2>
+    <div class="scroll"><table id="chainTbl"></table></div>
+    <p class="note">The strategy's whole chain workflow (S.2): premium at each strike
+      across both expiries. Highlighted rows are the strikes the plan selected.
+      <b>Roll value</b> is monthly minus weekly premium at that strike &mdash; what a
+      rollover there is currently worth.</p>
+  </div>
+
+  <div class="card">
+    <h2>6 &middot; Recorded baskets</h2>
+    <div class="scroll"><table id="basketTbl"></table></div>
+  </div>
+
+  <p class="note">
+    Educational tooling built from a playbook you supplied &mdash; not advice, and not a
+    recommendation to trade. The source itself asks you to paper-trade and backtest this
+    structure for months before risking capital, and notes its numbers are one trader's
+    self-reported figures. Every live order requires your explicit confirmation; nothing
+    here trades on its own.
+  </p>
+</main>
+<div id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+let PLAN = null, CHAIN = null, STATUS = {};
+
+function toast(msg, ms){
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove("show"), ms || 4500);
+}
+const money = v => v == null ? "--" : "₹" + Number(v).toLocaleString("en-IN",
+  {maximumFractionDigits:0});
+const num = (v,d) => v == null ? "--" : Number(v).toFixed(d==null?2:d);
+
+async function api(path, opts){
+  const r = await fetch(path, opts);
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.detail || r.statusText);
+  return j;
+}
+
+async function loadStatus(){
+  try { STATUS = await api("/api/strategy/status"); }
+  catch(e){ $("pills").innerHTML = '<span class="pill bad">API unreachable</span>'; return; }
+  const p = [];
+  p.push(STATUS.authenticated
+    ? '<span class="pill ok">Kite connected</span>'
+    : '<span class="pill bad">Kite not connected</span>');
+  p.push(STATUS.live_orders_enabled
+    ? '<span class="pill warn">LIVE ORDERS ENABLED</span>'
+    : '<span class="pill">Live orders disabled</span>');
+  p.push('<span class="pill">IST <b>' + STATUS.now_ist.slice(11,16) + '</b></span>');
+  $("pills").innerHTML = p.join(" ");
+}
+
+async function loadIndices(){
+  const d = await api("/api/strategy/indices");
+  $("idx").innerHTML = d.indices.map(i =>
+    `<option value="${i.key}">${i.label} (${i.exchange})</option>`).join("");
+}
+
+async function loadExpiries(){
+  const idx = $("idx").value;
+  $("expReason").textContent = "Loading expiries...";
+  let d;
+  try { d = await api("/api/strategy/expiries?index=" + idx); }
+  catch(e){ $("expReason").textContent = "Could not load expiries: " + e.message; return; }
+  const sel = d.selected;
+  const opt = (list, chosen) => list.map(e =>
+    `<option value="${e}"${e===chosen?" selected":""}>${e}</option>`).join("");
+  // Any expiry before the buy leg can serve as the short leg, including a
+  // month-end contract during expiry week.
+  $("wk").innerHTML = opt(d.all, sel.weekly);
+  $("mn").innerHTML = opt(d.monthlies, sel.monthly);
+  const bits = ["Lot size <b>" + d.lot_size + "</b>."].concat(sel.reasons);
+  $("expReason").innerHTML = bits.join(" ");
+  if(!sel.usable) $("expReason").innerHTML =
+    '<span style="color:var(--bad)">' + sel.reasons.join(" ") + '</span>';
+}
+
+function renderPlan(p){
+  PLAN = p;
+  $("planCard").style.display = "";
+  $("marginCard").style.display = "";
+  $("execCard").style.display = "";
+
+  $("verdict").innerHTML = p.tradeable
+    ? '<div class="banner go"><b>All entry filters pass.</b> The structure matches the '
+      + 'playbook and the gap rule is satisfied.</div>'
+    : '<div class="banner no"><b>Entry filters failed.</b> S.9 says sit this one out '
+      + 'rather than force it &mdash; see the failing check below.</div>';
+
+  const z = p.zone;
+  $("planStats").innerHTML = [
+    ["Spot", num(p.spot)],
+    ["Strike gap", p.gap_points == null ? "--" : num(p.gap_points,0) + " pts"],
+    ["Bought premium", money(p.buy_premium_total)],
+    ["Sold premium", money(p.sell_premium_total)],
+    ["Net debit", money(p.net_debit)],
+    ["Balance skew", p.balance_skew == null ? "--" : (p.balance_skew*100).toFixed(1) + "%"],
+    ["Zone", z ? z.zone : "--"]
+  ].map(([k,v]) => `<div><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+
+  $("legTbl").innerHTML =
+    "<tr><th>Role</th><th>Action</th><th>Symbol</th><th>Strike</th><th>Expiry</th>"
+    + "<th>Lots</th><th>Qty</th><th>Premium</th><th>Target</th><th>Miss</th>"
+    + "<th>Value</th><th>OI</th></tr>"
+    + p.legs.map(l => `<tr>
+        <td>${l.role}</td>
+        <td class="${l.action==='BUY'?'buy':'sell'}">${l.action}</td>
+        <td>${l.tradingsymbol}</td>
+        <td>${num(l.strike,0)}</td>
+        <td>${l.expiry}</td>
+        <td>${l.lots}</td>
+        <td>${l.quantity}</td>
+        <td>${num(l.premium)}</td>
+        <td class="muted">${num(l.target_premium,0)}</td>
+        <td class="muted">${(l.premium_miss*100).toFixed(1)}%</td>
+        <td>${money(l.premium_value)}</td>
+        <td class="muted">${Number(l.oi).toLocaleString("en-IN")}</td></tr>`).join("");
+
+  $("checks").innerHTML = p.checks.map(c =>
+    `<div class="chk ${c.passed?'pass':'fail'}">
+       <span class="mark">${c.passed?'PASS':'FAIL'}</span>
+       <span class="txt"><b>${c.name}</b> &mdash; ${c.detail}</span></div>`).join("");
+
+  const notes = (p.notes||[]).slice();
+  if(z) notes.push(`Fair-value anchor ${z.anchor}, compounded at ${(z.cagr*100).toFixed(1)}%/yr `
+    + `over ${z.years_from_anchor} yrs &rarr; fair ${num(z.fair_value,0)}, `
+    + `bands ${num(z.low_band,0)}&ndash;${num(z.high_band,0)}. Crude by design; it only biases skew.`);
+  if(p.expiry_reasons) notes.push(...p.expiry_reasons);
+  $("planNotes").innerHTML = notes.map(n => "&bull; " + n).join("<br>");
+
+  $("confirm").placeholder = p.confirmation_phrase;
+  syncMode();
+  if(CHAIN) renderChain(CHAIN);
+}
+
+function syncMode(){
+  const live = $("mode").value === "live";
+  $("confirmRow").style.display = live ? "" : "none";
+  const btn = $("btnExec");
+  btn.textContent = live ? "PLACE LIVE ORDERS" : "Record on paper";
+  btn.className = live ? "danger" : "primary";
+  if(live && !STATUS.live_orders_enabled){
+    $("execBanner").innerHTML = '<div class="banner no"><b>Live orders are disabled.</b> '
+      + 'Set <code>ALLOW_LIVE_ORDERS=true</code> in .env and restart the service. '
+      + 'Until then this button will be refused by the server.</div>';
+  } else if(live){
+    $("execBanner").innerHTML = '<div class="banner warn"><b>This sends real orders to '
+      + 'the exchange with real money.</b> Long legs are placed first so the spread '
+      + 'margin benefit applies; placement stops at the first rejection, which can leave '
+      + 'you holding a partial spread &mdash; check your Kite orderbook if that happens.</div>';
+  } else {
+    $("execBanner").innerHTML = '<div class="banner go">Paper mode &mdash; the basket is '
+      + 'recorded locally and nothing is sent to the exchange.</div>';
+  }
+}
+
+function renderChain(d){
+  CHAIN = d;
+  $("chainCard").style.display = "";
+  const picked = new Set((PLAN ? PLAN.legs : []).map(l => l.strike));
+  $("chainTbl").innerHTML =
+    `<tr><th>Strike</th><th>Weekly ${d.weekly_expiry}</th><th>Wk OI</th>
+      <th>Monthly ${d.monthly_expiry}</th><th>Mo OI</th><th>Roll value</th></tr>`
+    + d.table.map(r => `<tr class="${picked.has(r.strike)?'hl':''}">
+        <td>${num(r.strike,0)}</td>
+        <td>${num(r.near_premium)}</td>
+        <td class="muted">${Number(r.near_oi||0).toLocaleString("en-IN")}</td>
+        <td>${r.far_premium==null?"--":num(r.far_premium)}</td>
+        <td class="muted">${Number(r.far_oi||0).toLocaleString("en-IN")}</td>
+        <td>${r.time_value_gap==null?"--":num(r.time_value_gap)}</td></tr>`).join("");
+}
+
+async function loadBaskets(){
+  let d;
+  try { d = await api("/api/strategy/baskets?limit=25"); } catch(e){ return; }
+  if(!d.baskets.length){
+    $("basketTbl").innerHTML = '<tr><td class="muted">No baskets recorded yet.</td></tr>';
+    return;
+  }
+  $("basketTbl").innerHTML =
+    "<tr><th>#</th><th>When</th><th>Mode</th><th>Status</th><th>Index</th><th>Type</th>"
+    + "<th>Spot</th><th>Gap</th><th>Net debit</th><th>Legs</th></tr>"
+    + d.baskets.map(b => `<tr>
+        <td>${b.id}</td><td>${b.created_at.slice(0,16).replace("T"," ")}</td>
+        <td class="${b.mode==='live'?'sell':''}">${b.mode}</td>
+        <td>${b.status}</td><td>${b.index_key}</td><td>${b.option_type}</td>
+        <td>${num(b.spot)}</td><td>${num(b.gap_points,0)}</td>
+        <td>${money(b.net_debit)}</td><td>${b.legs.length}</td></tr>`).join("");
+}
+
+function sellLots(){
+  return $("lots").value.split(",").map(s => parseInt(s.trim(),10)).filter(n => n>0);
+}
+
+async function buildPlan(btn){
+  btn.disabled = true; const old = btn.textContent; btn.textContent = "Building...";
+  try{
+    const body = {
+      index: $("idx").value, option_type: $("ot").value,
+      buy_premium: parseFloat($("pBuy").value),
+      sell_premiums: [parseFloat($("pS1").value), parseFloat($("pS2").value)],
+      sell_lots: sellLots(),
+      weekly_expiry: $("wk").value || null, monthly_expiry: $("mn").value || null
+    };
+    renderPlan(await api("/api/strategy/plan",
+      {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)}));
+    toast("Plan built.");
+  }catch(e){ toast("Plan failed: " + e.message, 9000); }
+  finally{ btn.disabled=false; btn.textContent=old; }
+}
+
+async function loadChain(btn){
+  btn.disabled = true; const old = btn.textContent; btn.textContent = "Loading...";
+  try{
+    const q = new URLSearchParams({index:$("idx").value, option_type:$("ot").value});
+    if($("wk").value) q.set("weekly", $("wk").value);
+    if($("mn").value) q.set("monthly", $("mn").value);
+    renderChain(await api("/api/strategy/chain?" + q));
+    toast("Chain loaded.");
+  }catch(e){ toast("Chain failed: " + e.message, 9000); }
+  finally{ btn.disabled=false; btn.textContent=old; }
+}
+
+async function fetchMargin(btn){
+  if(!PLAN) return;
+  btn.disabled = true; const old = btn.textContent; btn.textContent = "Fetching...";
+  try{
+    const m = await api("/api/strategy/margin", {method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({plan: PLAN, product: $("product").value})});
+    $("marginStats").innerHTML = [
+      ["Margin required", money(m.total_required)],
+      ["Without hedge benefit", money(m.total_without_benefit)],
+      ["SPAN", money(m.span)], ["Exposure", money(m.exposure)],
+      ["Available", m.available==null ? "--" : money(m.available)],
+      ["Sufficient", m.sufficient==null ? "--" : (m.sufficient ? "Yes" : "NO")]
+    ].map(([k,v]) => `<div><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+    toast("Margin fetched.");
+  }catch(e){ toast("Margin failed: " + e.message, 9000); }
+  finally{ btn.disabled=false; btn.textContent=old; }
+}
+
+async function execute(btn){
+  if(!PLAN) return;
+  const live = $("mode").value === "live";
+  if(live && !confirm("Place " + PLAN.legs.length + " REAL orders on "
+      + PLAN.index + "? This uses real money.")) return;
+  btn.disabled = true; const old = btn.textContent; btn.textContent = "Working...";
+  try{
+    const r = await api("/api/strategy/execute", {method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({plan: PLAN, mode: $("mode").value,
+        confirm: $("confirm").value, product: $("product").value,
+        order_type: $("otype").value, note: $("note").value})});
+    const cls = r.mode === "paper" ? "go" : (r.status === "open" ? "go" : "no");
+    let html = `<div class="banner ${cls}">${r.message} (basket #${r.basket_id})</div>`;
+    if(r.results) html += '<div class="scroll"><table><tr><th>Symbol</th><th>Action</th>'
+      + '<th>Status</th><th>Order id</th><th>Error</th></tr>'
+      + r.results.map(x => `<tr><td>${x.tradingsymbol}</td><td>${x.action}</td>
+          <td>${x.status}</td><td>${x.order_id||"--"}</td>
+          <td class="muted">${x.error||""}</td></tr>`).join("") + "</table></div>";
+    $("execResult").innerHTML = html;
+    loadBaskets();
+  }catch(e){
+    $("execResult").innerHTML = `<div class="banner no">${e.message}</div>`;
+  }finally{ btn.disabled=false; btn.textContent=old; }
+}
+
+async function loadFairValue(){
+  let z;
+  try { z = await api("/api/strategy/fairvalue?index=" + $("idx").value); }
+  catch(e){ $("fvNote").textContent = "Fair value unavailable: " + e.message; return; }
+  const pct = v => v==null ? "--" : (v*100).toFixed(1) + "%";
+  const zoneCls = z.zone === "lifetime-high" ? "sell"
+                : (z.zone === "extreme-low" ? "buy" : "");
+  $("fvStats").innerHTML = [
+    ["Last crash top", num(z.crash_top,2), z.crash_top_date],
+    ["Year of last crash", z.crash_year, `low ${num(z.crash_low,2)} on ${z.crash_low_date}`],
+    ["Crash drawdown", pct(z.crash_drawdown_pct), "top to low"],
+    ["Latest top", num(z.latest_top,2), z.latest_top_date
+        ? `${z.latest_top_date} &middot; spot ${pct(z.spot_vs_latest_top_pct)}` : "--"],
+    ["Fair value today", num(z.fair_value,2), `as of ${z.as_of}`],
+    ["Spot", num(z.spot,2), `${pct(z.spot_vs_fair_pct)} vs fair`],
+    ["Zone", `<span class="${zoneCls}">${z.zone}</span>`, z.suggested_skew]
+  ].map(([k,v,d]) => `<div><div class="k">${k}</div><div class="v">${v}</div>`
+                   + `<div class="d muted" style="font-size:11px;margin-top:3px">${d||""}</div></div>`).join("");
+  $("fvNote").innerHTML =
+    `Anchor is the last drawdown greater than 25% &mdash; the ${z.crash_year} crash, `
+    + `top <b>${num(z.crash_top,2)}</b> on ${z.crash_top_date} down to `
+    + `<b>${num(z.crash_low,2)}</b> on ${z.crash_low_date} (${pct(z.crash_drawdown_pct)}).<br>`
+    + `The <b>top</b> is compounded forward at <b>${pct(z.cagr)}</b> a year over `
+    + `<b>${z.years_from_anchor}</b> years to give today's fair value of `
+    + `<b>${num(z.fair_value,2)}</b>, bands ${num(z.low_band,2)}&ndash;${num(z.high_band,2)}. `
+    + `Growing the crash <i>low</i> forward instead would put fair value near 15,300 and `
+    + `call every level since 2023 a lifetime high; compounding the pre-crash peak answers `
+    + `the real question &mdash; where the index would sit had the crash never happened and `
+    + `it simply grown at trend.<br>`
+    + `Crash levels are recorded index values (Kite's daily history reaches back only about `
+    + `four years); the <b>latest top</b> is derived from that history. Still a crude `
+    + `anchor-and-compound model, not a valuation &mdash; S.8 uses it only to bias the `
+    + `buy:sell lot ratio.`;
+}
+
+$("idx").onchange = () => { loadExpiries(); loadFairValue(); CHAIN=null; $("chainCard").style.display="none"; };
+$("mode").onchange = syncMode;
+$("btnPlan").onclick = e => buildPlan(e.target);
+$("btnChain").onclick = e => loadChain(e.target);
+$("btnMargin").onclick = e => fetchMargin(e.target);
+$("btnExec").onclick = e => execute(e.target);
+
+(async function(){
+  await loadStatus();
+  await loadIndices();
+  await loadExpiries();
+  await loadFairValue();
+  await loadBaskets();
+  setInterval(loadStatus, 60000);
+})();
+</script>
+</body>
+</html>

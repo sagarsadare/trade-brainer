@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TradeBrain - Nifty 50 PCR</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+<style>
+  :root{
+    --bg:#0b0f16; --panel:#131a24; --panel-2:#1a2330; --line:#243044;
+    --ink:#e6edf7; --muted:#8b9bb4; --dim:#5b6b82;
+    --ok:#34d399; --bad:#f87171;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:14px/1.5 "Segoe UI",Inter,system-ui,sans-serif}
+  header{display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+         padding:14px 20px;background:var(--panel);border-bottom:1px solid var(--line)}
+  h1{font-size:16px;margin:0;letter-spacing:.3px;font-weight:600}
+  h1 span{color:var(--muted);font-weight:400}
+  nav{display:flex;gap:6px;margin-left:8px}
+  nav a{color:var(--muted);text-decoration:none;font-size:13px;padding:5px 11px;
+        border-radius:6px;border:1px solid transparent;white-space:nowrap}
+  nav a:hover{color:var(--ink);border-color:var(--line)}
+  nav a.on{background:var(--panel-2);border-color:var(--line);color:var(--ink)}
+  .pills{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;align-items:center}
+  .pill{font-size:12px;padding:4px 10px;border-radius:999px;background:var(--panel-2);
+        border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+  .pill b{color:var(--ink);font-weight:600}
+  .pill.ok{border-color:#1f6f52;color:var(--ok)} .pill.bad{border-color:#7a2f2f;color:var(--bad)}
+  button,select,input{background:var(--panel-2);color:var(--ink);border:1px solid var(--line);
+        border-radius:6px;padding:6px 10px;font:inherit;font-size:13px}
+  button{cursor:pointer} button:hover:not(:disabled){border-color:#3a4c68}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.primary{background:#1d4ed8;border-color:#2563eb;color:#fff}
+  button.primary:hover{background:#2563eb}
+  main{padding:16px 20px 40px;max-width:1500px;margin:0 auto}
+  .controls{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;
+        background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .fld{display:flex;flex-direction:column;gap:5px}
+  .fld label{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--dim)}
+  .toggles{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .toggles label{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;color:var(--muted)}
+  .toggles input{accent-color:#2563eb;width:14px;height:14px;padding:0}
+  .swatch{width:22px;height:3px;border-radius:2px;display:inline-block}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:16px 0}
+  .tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .tile .k{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--dim)}
+  .tile .v{font-size:26px;font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums}
+  .tile .d{font-size:12px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums}
+  .up{color:var(--ok)} .down{color:var(--bad)}
+  #chart{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+         height:560px;margin-top:4px}
+  #intraCard table{width:100%;border-collapse:collapse;font-size:13px;
+        font-variant-numeric:tabular-nums}
+  #intraCard th{text-align:right;color:var(--dim);font-weight:600;font-size:11px;
+        text-transform:uppercase;letter-spacing:.6px;padding:7px 9px;
+        border-bottom:1px solid var(--line);white-space:nowrap;position:sticky;top:0;
+        background:var(--panel)}
+  #intraCard th:first-child,#intraCard td:first-child{text-align:left}
+  #intraCard td{padding:6px 9px;border-bottom:1px solid #1a2230;text-align:right;
+        white-space:nowrap}
+  #intraCard .buy{color:var(--ok);font-weight:600}
+  #intraCard .sell{color:var(--bad);font-weight:600}
+  #intraCard .neg{color:var(--bad)} #intraCard .pos{color:var(--ok)}
+  .tblwrap{overflow:auto;max-height:460px}
+  .note{color:var(--dim);font-size:12px;margin-top:14px;line-height:1.8}
+  .note b{color:var(--muted)}
+  .note code{background:var(--panel-2);padding:1px 5px;border-radius:4px;color:var(--muted)}
+  #toast{position:fixed;right:18px;bottom:18px;background:var(--panel-2);
+         border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:13px;
+         opacity:0;transition:opacity .25s;pointer-events:none;max-width:380px}
+  #toast.show{opacity:1}
+  .empty{display:flex;align-items:center;justify-content:center;height:100%;
+         color:var(--dim);text-align:center;padding:40px;flex-direction:column;gap:10px}
+  .empty b{color:var(--muted);font-size:15px}
+</style>
+</head>
+<body>
+<header>
+  <h1>TradeBrain <span>/ Nifty 50 Put-Call Ratio</span></h1>
+  <div id="tbNav"></div>
+  <script src="/static/nav.js?v=5" data-active="pcr"></script>
+  <div class="pills" id="pills"></div>
+</header>
+
+<main>
+  <div class="controls">
+    <div class="fld"><label for="dateSel">Session</label>
+      <select id="dateSel"></select></div>
+    <div class="fld"><label for="cmpSel">Compare with</label>
+      <select id="cmpSel"></select></div>
+    <div class="fld"><label>Series</label>
+      <div class="toggles" id="toggles"></div></div>
+    <div class="fld"><label>&nbsp;</label>
+      <div style="display:flex;gap:8px">
+        <button id="btnRefresh">Refresh</button>
+        <button id="btnSnap" class="primary">Snapshot now</button>
+        <button id="btnBack">Backfill session</button>
+      </div></div>
+  </div>
+
+  <div class="tiles" id="tiles"></div>
+  <div id="chart"></div>
+
+  <div id="intraCard" style="display:none;background:var(--panel);
+       border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-top:14px">
+    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
+      <div class="fld"><label for="intraKind">Intraday trend &mdash; expiry</label>
+        <select id="intraKind"><option value="weekly">weekly</option>
+          <option value="monthly">monthly</option></select></div>
+      <div id="intraMeta" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"></div>
+    </div>
+    <div id="intraChart" style="height:340px;margin-bottom:12px"></div>
+    <div class="tblwrap"><table id="intraTbl"></table></div>
+    <p class="note">The chart plots PCR against time for the selected expiry; points are
+      green at PCR&nbsp;&ge;&nbsp;1 and red below, matching the signal column exactly.
+      The table lists every 15-minute slot, newest first. <b>Diff</b> is PUT minus CALL open
+      interest, so it carries the same sign as PCR&nbsp;&minus;&nbsp;1.
+      <b>Option signal</b> is BUY at PCR&nbsp;&ge;&nbsp;1 and SELL below it.
+      <b>VWAP</b> is a cumulative session VWAP taken from the front-month future &mdash;
+      the index itself reports no traded volume, so it cannot supply one; <b>VWAP signal</b>
+      is BUY when price is above it. The PCR column is exactly the series plotted in the
+      curve above.</p>
+  </div>
+
+  <div id="chainCard" style="display:none;background:var(--panel);
+       border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-top:14px">
+    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
+      <div class="fld"><label for="chainSlot">Slot</label><select id="chainSlot"></select></div>
+      <div class="fld"><label for="chainKind">Expiry</label>
+        <select id="chainKind"><option value="weekly">weekly</option>
+          <option value="monthly">monthly</option></select></div>
+      <div id="chainStats" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"></div>
+    </div>
+    <div id="chainChart" style="height:440px"></div>
+    <div id="painChart" style="height:290px;margin-top:10px"></div>
+  </div>
+
+  <p class="note">
+    PCR = &Sigma;&nbsp;PUT / &Sigma;&nbsp;CALL across ATM &plusmn;<b id="winTxt">10</b> strikes,
+    with weekly and monthly expiries tracked separately.
+    <b>OI-PCR</b> uses open interest (positioning); <b>Vol-PCR</b> uses cumulative traded volume
+    (flow) &mdash; Vol-PCR reacts faster and is noisier early in the session.
+    The dashed line at <b>1.00</b> is the neutral pivot: above it puts dominate, below it calls do.<br>
+    Dotted curves are the comparison session, aligned by time-of-day.
+    Backfilled sessions begin at <code>09:30</code> because a 15-minute candle stamped 09:15 only
+    reports its state at 09:30; live collection additionally captures the <code>09:15</code> open.
+  </p>
+</main>
+<div id="toast"></div>
+
+<script>
+const SERIES = [
+  {key:"weekly_oi_pcr",  label:"Weekly OI-PCR",   hex:"#2dd4bf", on:true},
+  {key:"monthly_oi_pcr", label:"Monthly OI-PCR",  hex:"#60a5fa", on:true},
+  {key:"weekly_vol_pcr", label:"Weekly Vol-PCR",  hex:"#fbbf24", on:true},
+  {key:"monthly_vol_pcr",label:"Monthly Vol-PCR", hex:"#c084fc", on:false}
+];
+let showSpot = true;
+let showPain = true;
+let latest = null;
+let datesLoaded = false;
+const $ = id => document.getElementById(id);
+
+function toast(msg, ms){
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(t._h);
+  t._h = setTimeout(function(){ t.classList.remove("show"); }, ms || 4000);
+}
+
+function buildToggles(){
+  const box = $("toggles");
+  box.innerHTML = "";
+  SERIES.forEach(function(s){
+    const l = document.createElement("label");
+    l.innerHTML = '<input type="checkbox" ' + (s.on ? "checked" : "") + '>' +
+                  '<span class="swatch" style="background:' + s.hex + '"></span>' + s.label;
+    l.querySelector("input").onchange = function(e){ s.on = e.target.checked; render(); };
+    box.appendChild(l);
+  });
+  const l = document.createElement("label");
+  l.innerHTML = '<input type="checkbox" checked>' +
+                '<span class="swatch" style="background:#5b6b82"></span>Nifty spot';
+  l.querySelector("input").onchange = function(e){ showSpot = e.target.checked; render(); };
+  box.appendChild(l);
+  const mp = document.createElement("label");
+  mp.innerHTML = '<input type="checkbox" checked>' +
+                 '<span class="swatch" style="background:#c084fc"></span>Max pain';
+  mp.querySelector("input").onchange = function(e){ showPain = e.target.checked; render(); };
+  box.appendChild(mp);
+}
+
+async function loadStatus(){
+  let s;
+  try { s = await (await fetch("/api/status")).json(); }
+  catch (e) { $("pills").innerHTML = '<span class="pill bad">API unreachable</span>'; return null; }
+  $("winTxt").textContent = s.strike_window;
+  const pills = [];
+  if (s.authenticated) {
+    pills.push('<span class="pill ok">Kite connected</span>');
+  } else if (s.credentials_configured) {
+    pills.push('<span class="pill bad">Kite not connected</span>' +
+      '<button class="primary" onclick="location.href=\'/auth/kite/login\'">Connect Kite</button>' +
+      '<button onclick="location.href=\'/auth/kite/manual\'">Connect manually</button>');
+  } else {
+    pills.push('<span class="pill bad">No API key in .env</span>');
+  }
+  pills.push('<span class="pill">Market <b>' + (s.market_open ? "OPEN" : "closed") + '</b></span>');
+  if (s.last_run) {
+    const r = s.last_run;
+    const cls = r.status === "ok" ? "ok" : (r.status === "error" ? "bad" : "");
+    pills.push('<span class="pill ' + cls + '">Last ' + r.kind + ': <b>' + r.status +
+               '</b> ' + r.ran_at.slice(11, 16) + '</span>');
+  }
+  pills.push('<span class="pill">IST <b>' + s.now_ist.slice(11, 16) + '</b></span>');
+  $("pills").innerHTML = pills.join(" ");
+  return s;
+}
+
+function fillSelect(sel, dates, chosen, allowNone){
+  sel.innerHTML = allowNone ? '<option value="">(none)</option>' : "";
+  dates.forEach(function(d){
+    const o = document.createElement("option");
+    o.value = d; o.textContent = d;
+    if (d === chosen) o.selected = true;
+    sel.appendChild(o);
+  });
+  if (!dates.length) {
+    const o = document.createElement("option");
+    o.textContent = "no data yet";
+    sel.appendChild(o);
+  }
+}
+
+async function loadSeries(){
+  const q = new URLSearchParams();
+  if (datesLoaded) {
+    if ($("dateSel").value) q.set("date", $("dateSel").value);
+    if ($("cmpSel").value)  q.set("compare", $("cmpSel").value);
+  }
+  try { latest = await (await fetch("/api/series?" + q)).json(); }
+  catch (e) { toast("Could not load series: " + e.message, 6000); return; }
+  const dates = latest.available_dates || [];
+  if (!datesLoaded && dates.length) {
+    fillSelect($("dateSel"), dates, latest.primary ? latest.primary.date : null, false);
+    fillSelect($("cmpSel"), dates, latest.compare ? latest.compare.date : null, true);
+    datesLoaded = true;
+  } else if (!dates.length) {
+    fillSelect($("dateSel"), [], null, false);
+    fillSelect($("cmpSel"), [], null, true);
+  }
+  render();
+  loadIntraday();
+  loadChain();
+}
+
+function lastVal(arr){
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (arr[i] !== null && arr[i] !== undefined) return {v: arr[i], i: i};
+  }
+  return null;
+}
+
+function renderTiles(){
+  const box = $("tiles");
+  box.innerHTML = "";
+  const p = latest && latest.primary, c = latest && latest.compare;
+  if (!p) return;
+  function add(k, v, d, cls){
+    const el = document.createElement("div");
+    el.className = "tile";
+    el.innerHTML = '<div class="k">' + k + '</div><div class="v ' + (cls || "") + '">' + v +
+                   '</div><div class="d">' + (d || "") + '</div>';
+    box.appendChild(el);
+  }
+  SERIES.filter(function(s){ return s.on; }).forEach(function(s){
+    const cur = lastVal(p.series[s.key] || []);
+    if (!cur) { add(s.label, "--", "no data"); return; }
+    let delta = "at " + latest.slots[cur.i], cls = "";
+    if (c && c.series[s.key] && c.series[s.key][cur.i] != null) {
+      const diff = cur.v - c.series[s.key][cur.i];
+      cls = diff >= 0 ? "up" : "down";
+      delta = (diff >= 0 ? "+" : "") + diff.toFixed(3) + " vs " + c.date +
+              " at " + latest.slots[cur.i];
+    }
+    add(s.label, cur.v.toFixed(3), delta, cls);
+  });
+  const sp = lastVal(p.spot || []);
+  if (sp) add("Nifty 50 spot", sp.v.toFixed(2), p.date + " at " + latest.slots[sp.i]);
+  if (p.expiries) {
+    add("Weekly expiry", p.expiries.weekly || "--",
+        "monthly " + (p.expiries.monthly || "--") + " | " + p.points +
+        " rows (" + (p.sources || []).join("+") + ")");
+  }
+}
+
+function render(){
+  renderTiles();
+  const p = latest && latest.primary, c = latest && latest.compare;
+  const slots = (latest && latest.slots) || [];
+  if (!p) {
+    Plotly.purge("chart");
+    $("chart").innerHTML = '<div class="empty"><b>No PCR data stored yet.</b>' +
+      '<span>Connect Kite, then use <b>Snapshot now</b> during market hours,' +
+      ' or <b>Backfill session</b> to rebuild a past day from historical OI.</span></div>';
+    return;
+  }
+  const traces = [];
+  SERIES.filter(function(s){ return s.on; }).forEach(function(s){
+    traces.push({x: slots, y: p.series[s.key], name: s.label + " - " + p.date,
+      mode: "lines+markers", type: "scatter", connectgaps: false,
+      line: {color: s.hex, width: 2.2, shape: "spline", smoothing: 0.4},
+      marker: {size: 4},
+      hovertemplate: "%{y:.3f}<extra>" + s.label + " " + p.date + "</extra>"});
+    if (c && c.series[s.key]) {
+      traces.push({x: slots, y: c.series[s.key], name: s.label + " - " + c.date,
+        mode: "lines", type: "scatter", connectgaps: false, opacity: 0.6,
+        line: {color: s.hex, width: 1.6, dash: "dot", shape: "spline", smoothing: 0.4},
+        hovertemplate: "%{y:.3f}<extra>" + s.label + " " + c.date + "</extra>"});
+    }
+  });
+  if (showSpot && p.spot && p.spot.some(function(v){ return v != null; })) {
+    traces.push({x: slots, y: p.spot, name: "Nifty spot - " + p.date, yaxis: "y2",
+      mode: "lines", type: "scatter", connectgaps: false,
+      line: {color: "#5b6b82", width: 1.4},
+      hovertemplate: "%{y:.2f}<extra>Nifty spot</extra>"});
+  }
+  // Max pain shares the spot axis: it is a price level, not a ratio.
+  if (showPain && p.max_pain) {
+    [["weekly", "#c084fc"], ["monthly", "#f0883e"]].forEach(function (pair) {
+      var mp = p.max_pain[pair[0]];
+      if (mp && mp.some(function (v) { return v != null; })) {
+        traces.push({x: slots, y: mp, name: "Max pain " + pair[0], yaxis: "y2",
+          mode: "lines", type: "scatter", connectgaps: false,
+          line: {color: pair[1], width: 1.5, dash: "dashdot", shape: "hv"},
+          hovertemplate: "%{y:.0f}<extra>Max pain " + pair[0] + "</extra>"});
+      }
+    });
+  }
+  const layout = {
+    paper_bgcolor: "transparent", plot_bgcolor: "transparent",
+    font: {color: "#8b9bb4", family: "Segoe UI, Inter, sans-serif", size: 12},
+    margin: {l: 58, r: 66, t: 26, b: 90},
+    hovermode: "x unified",
+    hoverlabel: {bgcolor: "#1a2330", bordercolor: "#243044", font: {color: "#e6edf7"}},
+    legend: {orientation: "h", y: -0.28, font: {size: 11}},
+    xaxis: {title: {text: "Time of day (IST)", font: {size: 11}}, gridcolor: "#1b2432",
+            zeroline: false, tickangle: -45, type: "category"},
+    yaxis: {title: {text: "PCR", font: {size: 11}}, gridcolor: "#1b2432",
+            zeroline: false, tickformat: ".2f"},
+    yaxis2: {title: {text: "Nifty 50", font: {size: 11}}, overlaying: "y", side: "right",
+             showgrid: false, tickformat: ".0f"},
+    shapes: [{type: "line", xref: "paper", x0: 0, x1: 1, yref: "y", y0: 1, y1: 1,
+              line: {color: "#4b5b73", width: 1, dash: "dash"}}]
+  };
+  Plotly.react("chart", traces, layout,
+    {responsive: true, displaylogo: false,
+     modeBarButtonsToRemove: ["select2d", "lasso2d"]});
+}
+
+async function post(url, label, btn){
+  btn.disabled = true;
+  const old = btn.textContent;
+  btn.textContent = "Working...";
+  try {
+    const r = await fetch(url, {method: "POST"});
+    const j = await r.json().catch(function(){ return {}; });
+    if (!r.ok) throw new Error(j.detail || r.statusText);
+    toast(label + ": " + (j.note || "done."), 6000);
+    setTimeout(function(){ datesLoaded = false; loadStatus(); loadSeries(); }, 2000);
+  } catch (e) {
+    toast(label + " failed: " + e.message, 8000);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = old;
+  }
+}
+
+
+// ------------------------------------------------- intraday trend table --
+async function loadIntraday(){
+  const p = latest && latest.primary;
+  if(!p){ $("intraCard").style.display = "none"; return; }
+  let d;
+  try{
+    d = await (await fetch("/api/intraday?date=" + p.date
+                           + "&expiry_kind=" + $("intraKind").value)).json();
+  }catch(e){ return; }
+  if(d.detail){ $("intraCard").style.display = "none"; return; }
+  $("intraCard").style.display = "";
+  $("intraMeta").innerHTML =
+    '<span class="pill">' + d.date + '</span>'
+    + '<span class="pill">expiry <b>' + d.expiry_date + '</b></span>'
+    + '<span class="pill">VWAP from <b>' + (d.vwap_source || "unavailable") + '</b></span>'
+    + '<span class="pill">' + d.rows.length + ' slots</span>';
+
+  const n = v => v == null ? "--" : Number(v).toLocaleString("en-IN");
+  const f = (v,d2) => v == null ? "--" : Number(v).toFixed(d2 == null ? 2 : d2);
+  const sig = v => v == null ? '<td>--</td>'
+    : '<td class="' + v.toLowerCase() + '">' + v + '</td>';
+
+  $("intraTbl").innerHTML =
+    "<tr><th>Time</th><th>Call OI</th><th>Put OI</th><th>Diff</th><th>PCR</th>"
+    + "<th>Option signal</th><th>Price</th><th>VWAP</th><th>VWAP signal</th>"
+    + "<th>Max pain</th></tr>"
+    + d.rows.slice().reverse().map(function(r){
+        return '<tr><td>' + r.slot + '</td>'
+          + '<td>' + n(r.call_oi) + '</td>'
+          + '<td>' + n(r.put_oi) + '</td>'
+          + '<td class="' + (r.diff < 0 ? "neg" : "pos") + '">' + n(r.diff) + '</td>'
+          + '<td>' + f(r.pcr) + '</td>'
+          + sig(r.option_signal)
+          + '<td>' + f(r.price) + '</td>'
+          + '<td>' + f(r.vwap) + '</td>'
+          + sig(r.vwap_signal)
+          + '<td>' + f(r.max_pain, 0) + '</td></tr>';
+      }).join("");
+
+  drawIntraChart(d);
+}
+
+function drawIntraChart(d){
+  const rows = d.rows.filter(function(r){ return r.pcr != null; });
+  if(!rows.length){ Plotly.purge("intraChart"); return; }
+  const x = rows.map(function(r){ return r.slot; });
+  const y = rows.map(function(r){ return r.pcr; });
+  // Colour each point by the same rule the signal column uses, so the chart
+  // and the table can never tell different stories.
+  const dot = rows.map(function(r){ return r.pcr >= 1 ? "#34d399" : "#f87171"; });
+
+  Plotly.react("intraChart", [{
+    x: x, y: y, name: "PCR", type: "scatter", mode: "lines+markers",
+    line: {color: "#60a5fa", width: 2.2, shape: "spline", smoothing: 0.4},
+    marker: {size: 7, color: dot, line: {color: "#0b0f16", width: 1}},
+    customdata: rows.map(function(r){ return r.option_signal || "--"; }),
+    hovertemplate: "%{x}  PCR <b>%{y:.2f}</b>  %{customdata}<extra></extra>"
+  }], {
+    paper_bgcolor: "transparent", plot_bgcolor: "transparent",
+    font: {color: "#8b9bb4", size: 11}, margin: {l: 56, r: 24, t: 10, b: 62},
+    hovermode: "x unified",
+    hoverlabel: {bgcolor: "#1a2330", bordercolor: "#243044", font: {color: "#e6edf7"}},
+    showlegend: false,
+    xaxis: {title: {text: "Time of day (IST)", font: {size: 11}}, type: "category",
+            gridcolor: "#1b2432", zeroline: false, tickangle: -45},
+    yaxis: {title: {text: "PCR (" + d.expiry_kind + ")", font: {size: 11}},
+            gridcolor: "#1b2432", zeroline: false, tickformat: ".2f"},
+    shapes: [{type: "line", xref: "paper", x0: 0, x1: 1, yref: "y", y0: 1, y1: 1,
+              line: {color: "#4b5b73", width: 1, dash: "dash"}}],
+    annotations: [{xref: "paper", x: 1, xanchor: "right", yref: "y", y: 1,
+                   yshift: 9, text: "1.00 neutral", showarrow: false,
+                   font: {size: 10, color: "#4b5b73"}}]
+  }, {responsive: true, displaylogo: false,
+      modeBarButtonsToRemove: ["select2d", "lasso2d"]});
+}
+
+$("intraKind").onchange = loadIntraday;
+
+// --------------------------------------------------- strike-wise PCR curve --
+async function loadChain(){
+  const p = latest && latest.primary;
+  if(!p){ $("chainCard").style.display = "none"; return; }
+  const kind = $("chainKind").value;
+  const avail = (p.slots_with_strikes || {})[kind] || [];
+  if(!avail.length){
+    $("chainCard").style.display = "";
+    $("chainSlot").innerHTML = '<option>no strike detail</option>';
+    $("chainStats").innerHTML = '<span class="pill">Per-strike detail is recorded '
+      + 'from this version onward &mdash; re-run the backfill for this session.</span>';
+    Plotly.purge("chainChart"); Plotly.purge("painChart");
+    return;
+  }
+  // Default to the last slot of the session -- the freshest chain is what you
+  // want on open; an explicit choice is preserved across refreshes.
+  const keep = avail.includes($("chainSlot").value) ? $("chainSlot").value
+                                                    : avail[avail.length - 1];
+  $("chainSlot").innerHTML = avail.map(function(sl){
+    return '<option value="' + sl + '"' + (sl === keep ? " selected" : "") + '>' + sl + '</option>';
+  }).join("");
+  $("chainSlot").value = keep;
+
+  let d;
+  try{
+    d = await (await fetch("/api/chain?date=" + p.date + "&slot=" + $("chainSlot").value
+                           + "&expiry_kind=" + kind)).json();
+  }catch(e){ return; }
+  if(d.detail){ $("chainStats").innerHTML = '<span class="pill">' + d.detail + '</span>'; return; }
+  $("chainCard").style.display = "";
+  drawChain(d);
+}
+
+function drawChain(d){
+  const x = d.strikes.map(function(r){ return r.strike; });
+  $("chainStats").innerHTML = [
+    ["Spot", d.spot == null ? "--" : d.spot.toFixed(2)],
+    ["ATM", d.atm_strike == null ? "--" : d.atm_strike.toFixed(0)],
+    ["Max pain", d.max_pain == null ? "--" : d.max_pain.toFixed(0)],
+    ["Expiry", d.expiry_date || "--"]
+  ].map(function(kv){ return '<span class="pill">' + kv[0] + ' <b>' + kv[1] + '</b></span>'; }).join(" ");
+
+  const marks = [];
+  if(d.spot != null) marks.push({type:"line", x0:d.spot, x1:d.spot, yref:"paper", y0:0, y1:1,
+    line:{color:"#5b6b82", width:1.4, dash:"dot"}});
+  if(d.max_pain != null) marks.push({type:"line", x0:d.max_pain, x1:d.max_pain, yref:"paper",
+    y0:0, y1:1, line:{color:"#c084fc", width:1.6, dash:"dashdot"}});
+
+  Plotly.react("chainChart", [
+    {x, y:d.strikes.map(r=>r.ce_oi), name:"CALL OI", type:"bar",
+     marker:{color:"#f0883e99"}, hovertemplate:"%{x}<br>CE OI %{y:,}<extra></extra>"},
+    {x, y:d.strikes.map(r=>r.pe_oi), name:"PUT OI", type:"bar",
+     marker:{color:"#2dd4bf99"}, hovertemplate:"%{x}<br>PE OI %{y:,}<extra></extra>"},
+    {x, y:d.strikes.map(r=>r.oi_pcr), name:"PCR at strike", type:"scatter",
+     mode:"lines+markers", yaxis:"y2", line:{color:"#60a5fa", width:2.2},
+     marker:{size:5}, hovertemplate:"%{x}<br>PCR %{y:.3f}<extra></extra>"}
+  ], {
+    paper_bgcolor:"transparent", plot_bgcolor:"transparent", barmode:"group",
+    font:{color:"#8b9bb4", size:11}, margin:{l:66, r:66, t:12, b:70},
+    hovermode:"x unified",
+    hoverlabel:{bgcolor:"#1a2330", bordercolor:"#243044", font:{color:"#e6edf7"}},
+    legend:{orientation:"h", y:-0.22, font:{size:11}},
+    xaxis:{title:{text:"Strike", font:{size:11}}, gridcolor:"#1b2432", zeroline:false},
+    yaxis:{title:{text:"Open interest", font:{size:11}}, gridcolor:"#1b2432", zeroline:false},
+    yaxis2:{title:{text:"PCR at strike", font:{size:11}}, overlaying:"y", side:"right",
+            type:"log", showgrid:false},
+    shapes:marks
+  }, {responsive:true, displaylogo:false, modeBarButtonsToRemove:["select2d","lasso2d"]});
+
+  Plotly.react("painChart", [
+    {x:d.pain_curve.map(c=>c.strike), y:d.pain_curve.map(c=>c.total_pain),
+     name:"Total writer pain", type:"scatter", mode:"lines+markers",
+     line:{color:"#c084fc", width:2.2}, marker:{size:5},
+     hovertemplate:"%{x}<br>pain %{y:,}<extra></extra>"}
+  ], {
+    paper_bgcolor:"transparent", plot_bgcolor:"transparent",
+    font:{color:"#8b9bb4", size:11}, margin:{l:66, r:66, t:12, b:52},
+    hovermode:"x unified",
+    hoverlabel:{bgcolor:"#1a2330", bordercolor:"#243044", font:{color:"#e6edf7"}},
+    showlegend:false,
+    xaxis:{title:{text:"Settlement strike", font:{size:11}}, gridcolor:"#1b2432", zeroline:false},
+    yaxis:{title:{text:"Writer pain", font:{size:11}}, gridcolor:"#1b2432", zeroline:false},
+    shapes:marks
+  }, {responsive:true, displaylogo:false, modeBarButtonsToRemove:["select2d","lasso2d"]});
+}
+
+$("chainSlot").onchange = loadChain;
+$("chainKind").onchange = function(){ $("chainSlot").value = ""; loadChain(); };
+
+$("btnRefresh").onclick = function(){ loadStatus(); loadSeries(); toast("Refreshed."); };
+$("btnSnap").onclick = function(e){ post("/api/collect", "Snapshot", e.target); };
+$("btnBack").onclick = function(e){
+  const d = $("dateSel").value;
+  post("/api/backfill" + (d ? "?date=" + d : ""),
+       "Backfill " + (d || "previous session"), e.target);
+};
+$("dateSel").onchange = function(){ $("cmpSel").value = ""; loadSeries(); };
+$("cmpSel").onchange = loadSeries;
+
+buildToggles();
+loadStatus().then(loadSeries);
+setInterval(function(){ loadStatus(); loadSeries(); }, 60000);
+if (new URLSearchParams(location.search).get("connected")) toast("Kite connected.");
+</script>
+</body>
+</html>

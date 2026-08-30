@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "tradebrain-pcr",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["run.py", "serve"],
+      "port": 8000
+    }
+  ]
+}
